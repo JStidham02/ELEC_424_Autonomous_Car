@@ -5,11 +5,12 @@ import math
 import sys
 import time
 #import Adafruit_BBIO.PWM as PWM
+import bb_pwm # library we wrote
 
 # based on: https://www.instructables.com/Autonomous-Lane-Keeping-Car-Using-Raspberry-Pi-and/
 
 # Throttle
-throttlePin = "P8_13"
+throttlePin = "P9_14"
 go_forward = 7.91
 go_faster_addition = 0.022
 go_faster_tick_delay = 80
@@ -17,7 +18,7 @@ go_faster_tick = 0  # Do not change this here. Code will set this value after se
 dont_move = 7.5
 
 # Steering
-steeringPin = "P9_14"
+steeringPin = "P9_16"
 left = 9
 right = 6
 
@@ -30,6 +31,8 @@ atStopLight = False
 passedFirstStopSign = False
 
 secondStopLightTick = 0
+
+PWM = bb_pwm.BB_PWM()
 
 
 def getRedFloorBoundaries():
@@ -154,9 +157,11 @@ def getBoundaries(filename):
 def initialize_car():
     # give 7.5% duty at 50Hz to throttle
     #PWM.start(throttlePin, dont_move, frequency=50)
-
+    PWM.default_vals(throttlePin)
     # wait for car to be ready
-    #input()
+    print("Set throttle to default value, press enter when ESC calibrated")
+    input()
+    PWM.default_vals(steeringPin)
     #PWM.start(steeringPin, dont_move, frequency=50)
     return
 
@@ -166,6 +171,7 @@ def stop():
     Stops the car
     :return: none
     """
+    PWM.default_vals(throttlePin)
     #PWM.set_duty_cycle(throttlePin, dont_move)
     return
 
@@ -565,6 +571,8 @@ video.release()
 cv2.destroyAllWindows()
 #PWM.set_duty_cycle(throttlePin, 7.5)
 #PWM.set_duty_cycle(steeringPin, 7.5)
+PWM.default_vals(throttlePin)
+PWM.default_vals(steeringPin)
 #PWM.stop(throttlePin)
 #PWM.stop(steeringPin)
 #PWM.cleanup()

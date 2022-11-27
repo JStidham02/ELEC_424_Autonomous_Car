@@ -1,6 +1,6 @@
 class BB_PWM():
 
-    def set_duty_cycle(pin, cycle):
+    def set_duty_cycle(self, pin, cycle):
         """
         This method sets the duty cycle
 
@@ -30,7 +30,7 @@ class BB_PWM():
                 return False
 
 
-    def default_vals(pin):
+    def default_vals(self, pin):
         """
         This method returns the specified pins PWM to default values (stopped or centered)
         
