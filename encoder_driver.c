@@ -1,3 +1,8 @@
+#include <stdio.h>
+#include <stdint.h>
+#include <signal.h>
+#include <unistd.h>
+#include <sys/time.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/fs.h>
@@ -10,7 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
-#include <sys/time.h>
+
 /* Code written referencing course materials and https://github.com/Johannes4Linux/Linux_Driver_Tutorial/blob/main/11_gpio_irq/gpio_irq.c */
 
 #define DEVICE_NAME "encoder_driver"
