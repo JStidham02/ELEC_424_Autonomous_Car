@@ -9,8 +9,9 @@
 #include <linux/gpio/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/irq.h>
+#include <linux/types.h>
 #include <linux/interrupt.h>
-#include <linux/time.h>
+#include <linux/ktime.h>
 #include <linux/timekeeping.h>
 
 /* Code written referencing course materials and https://github.com/Johannes4Linux/Linux_Driver_Tutorial/blob/main/11_gpio_irq/gpio_irq.c */
@@ -21,8 +22,9 @@
 struct device *dev;
 struct gpio_desc *button_desc;
 int irq;
-ktime_t last_time;
-ktime_t curr_time;
+
+static volatile u64 last_time;
+static volatile u64 curr_time;
 
 static int major_number;
 static struct class *encoder_driver_class = NULL;
@@ -132,10 +134,12 @@ static int encoder_probe(struct platform_device *pdev)
 		printk("Failed to install irq\n");
 		return -1;
 	}
-	last_time = ktime_get();
-	
-	//TODO set up character driver
-	
+	last_time = ktime_get_ns();
+	//should read 0 ns
+	message[0] = '0';
+	message[1] = '\n';
+	message[2] = '\0';
+	size_of_message = strlen(message);
 	//print installation message
 	printk("Driver Installed!\n");
 	return 0;
@@ -173,11 +177,19 @@ module_platform_driver(adam_driver);
 static irq_handler_t encoder_irq_handler(unsigned int irq, void *dev_id, struct pt_regs *regs)
 {
 	//print message
+	u64 diff;
 	printk("encoder_irq: Encoder interrupt triggered!\n");
-	curr_time = ktime_get();
-	//compute difference in times
-	//update speed
-	//update stirng that represents the speed
+	curr_time = ktime_get_ns();
+	diff = curr_time - last_time;
+	if (diff > 1000000)
+	{
+		//only count when greater than 1 ms
+		//set last to curr
+		last_time = curr_time;
+		sprintf(message, "%lu", (unsigned long) diff);
+		size_of_message = strlen(message);
+		printk("Detected an encode press, time difference was %lu nanoseconds", (unsigned long) diff);
+	}
 	
 	return (irq_handler_t) IRQ_HANDLED;
 }
