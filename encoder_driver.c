@@ -1,22 +1,96 @@
 #include <linux/module.h>
+#include <linux/init.h>
+#include <linux/fs.h>
+#include <linux/device.h>
+#include <linux/uaccess.h>
+#include <linux/mutex.h>
 #include <linux/of_device.h>
 #include <linux/kernel.h>
 #include <linux/gpio/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
+#include <sys/time.h>
 /* Code written referencing course materials and https://github.com/Johannes4Linux/Linux_Driver_Tutorial/blob/main/11_gpio_irq/gpio_irq.c */
 
-/* YOU WILL HAVE TO DECLARE SOME VARIABLES HERE */
+#define DEVICE_NAME "encoder_driver"
+#define CLASS_NAME "elec424"
+
 struct device *dev;
 struct gpio_desc *button_desc;
 int irq;
+struct timeval last_time;
+struct timeval curr_time;
 
+static int major_number;
+static struct class *encoder_driver_class = NULL;
+static struct device *encoder_driver_device = NULL;
+static int times_called = 0;
+static char message[256] = {0};
+static short size_of_message;
+
+static DEFINE_MUTEX(encoder_mutex);
+
+/**
+ * File operations declaration
+ */
+static int device_open(struct inode *, struct file *);
+static ssize_t device_read(struct file *, char __user *, size_t, loff_t *);
+static ssize_t device_write(struct file *, const char __user *, size_t, loff_t *);
+static int device_release(struct inode *, struct file *);
 /**
  * ISR Declaration
  */
 static irq_handler_t encoder_irq_handler(unsigned int irq, void *dev_id, struct pt_regs *regs);
 
+static struct file_operations fops = 
+{
+    .open = device_open,
+    .read = device_read,
+    .release = device_release,
+};
+
+static int __init hello_init(void){
+    majorNumber = register_chrdev(0, DEVICE_NAME, &fops);
+    encoder_driver_class = class_create(THIS_MODULE, CLASS_NAME);
+    encoder_driver_device = device_create(encoder_driver_class, NULL, MKDEV(majorNumber, 0), NULL, DEVICE_NAME);
+    printk(KERN_INFO "init function has been called!\n");
+    mutex_init(&meschar_mutex);
+    return 0;
+}
+
+static void __exit hello_exit(void){
+    device_destroy(encoder_driver_class, MKDEV(majorNumber,0));
+    class_unregister(encoder_driver_class);
+    class_destroy(encoder_driver_class);
+    unregister_chrdev(majorNumber, DEVICE_NAME);
+    mutex_destroy(&meschar_mutex);
+    printk(KERN_INFO "exit function has been called!\n");
+}
+
+static int device_open(struct inode *inodep, struct file *filep){
+	if(!mutex_trylock(&meschar_mutex)){
+		printk(KERN_ALERT "I'm being used!\n");
+		return -EBUSY;
+	}
+    timesCalled++;
+    printk(KERN_INFO "encoder character device opened!");
+    return 0;
+}
+
+static ssize_t device_read(struct file *filep, char __user *buf, size_t length, loff_t *offset){
+	long error_count;
+	error_count = copy_to_user(buf,message,size_of_message);
+	printk("Sent %d characters bto user!\n", size_of_message);
+	return 0;
+}
+
+static int device_release(struct inode *inodep, struct file *filep)
+{
+	mutex_unlock(&meschar_mutex);
+	printk("Device released!\n");
+	return 0;
+}
 
 /**
  * Probe function
@@ -57,6 +131,14 @@ static int encoder_probe(struct platform_device *pdev)
 		printk("Failed to install irq\n");
 		return -1;
 	}
+	if(gettimeofday(&last_time, NULL) = -1)
+	{
+		printk("Failed to get the time\n");
+		return -1;
+	}
+	
+	//TODO set up character driver
+	
 	//print installation message
 	printk("Driver Installed!\n");
 	return 0;
@@ -66,7 +148,7 @@ static int encoder_probe(struct platform_device *pdev)
 static int encoder_remove(struct platform_device *pdev)
 {
 	free_irq(irq, NULL);
-	printk("Removed driver!\n");
+	printk("Removed driver!\n");	
 	return 0;
 }
 
@@ -88,6 +170,8 @@ static struct platform_driver adam_driver = {
 };
 
 module_platform_driver(adam_driver);
+module_init(hello_init);
+module_exit(hello_init);
 
 // define interrupt handler
 static irq_handler_t encoder_irq_handler(unsigned int irq, void *dev_id, struct pt_regs *regs)
@@ -95,6 +179,16 @@ static irq_handler_t encoder_irq_handler(unsigned int irq, void *dev_id, struct 
 	//print message
 	printk("encoder_irq: Encoder interrupt triggered!\n");
 	//TODO do timing here
+	if(gettimeofday(&this_time, NULL) == -1)
+	{
+		printk("Failed to get the current time!\n");
+	}
+	else
+	{
+		//compute difference in times
+		//update speed
+		//update stirng that represents the speed
+	}
 	return (irq_handler_t) IRQ_HANDLED;
 }
 
@@ -102,3 +196,4 @@ MODULE_DESCRIPTION("424\'s finest");
 MODULE_AUTHOR("Josh Stidham");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:adam_driver");
+MODULE_VERSION("0.000001");
