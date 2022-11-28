@@ -57,7 +57,7 @@ static int __init hello_init(void){
     major_number = register_chrdev(0, DEVICE_NAME, &fops);
     encoder_driver_class = class_create(THIS_MODULE, CLASS_NAME);
     encoder_driver_device = device_create(encoder_driver_class, NULL, MKDEV(major_number, 0), NULL, DEVICE_NAME);
-    printk(KERN_INFO "init function has been called!\n");
+    printk("init function has been called!\n");
     mutex_init(&encoder_mutex);
     return 0;
 }
@@ -68,7 +68,7 @@ static void __exit hello_exit(void){
     class_destroy(encoder_driver_class);
     unregister_chrdev(major_number, DEVICE_NAME);
     mutex_destroy(&encoder_mutex);
-    printk(KERN_INFO "exit function has been called!\n");
+    printk("exit function has been called!\n");
 }
 
 static int device_open(struct inode *inodep, struct file *filep){
@@ -77,14 +77,15 @@ static int device_open(struct inode *inodep, struct file *filep){
 		return -EBUSY;
 	}
     times_called++;
-    printk(KERN_INFO "encoder character device opened!");
+    printk("encoder character device opened!");
     return 0;
 }
 
 static ssize_t device_read(struct file *filep, char __user *buf, size_t length, loff_t *offset){
 	long error_count;
-	error_count = copy_to_user(buf,message,size_of_message);
-	printk("Sent %d characters bto user!\n", size_of_message);
+	error_count = copy_to_user(buf, message, size_of_message);
+	printk("Sent %d characters to user!\n", size_of_message);
+	printk("User should have received message: %s\n", message);
 	return 0;
 }
 
@@ -102,6 +103,7 @@ static int encoder_probe(struct platform_device *pdev)
 {
 	//declare variables
 	int ret;
+	printk("Starting probe function!\n");
 	hello_init();
 	//get device
 	dev = &(pdev->dev);
@@ -136,10 +138,9 @@ static int encoder_probe(struct platform_device *pdev)
 	}
 	last_time = ktime_get_ns();
 	//should read 0 ns
-	message[0] = '0';
-	message[1] = '\n';
-	message[2] = '\0';
-	size_of_message = strlen(message);
+	sprintf(message, "%lu", (unsigned long) last_time);
+	size_of_message = strlen(message) + 1;
+	printk("Initial message reads %s!\n", message);
 	//print installation message
 	printk("Driver Installed!\n");
 	return 0;
@@ -187,7 +188,7 @@ static irq_handler_t encoder_irq_handler(unsigned int irq, void *dev_id, struct 
 		//set last to curr
 		last_time = curr_time;
 		sprintf(message, "%lu", (unsigned long) diff);
-		size_of_message = strlen(message);
+		size_of_message = strlen(message) + 1;
 		printk("Detected an encode press, time difference was %lu nanoseconds", (unsigned long) diff);
 	}
 	
