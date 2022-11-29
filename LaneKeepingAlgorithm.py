@@ -423,16 +423,13 @@ def get_encoder_time():
 	return value
 
 
-print(get_encoder_time())
-exit()
-
 # set up the car throttle and steering PWMs
 initialize_car()
 
 # set up video
 video = cv2.VideoCapture(2)
-video.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-video.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+video.set(cv2.CAP_PROP_FRAME_WIDTH, 160)
+video.set(cv2.CAP_PROP_FRAME_HEIGHT, 120)
 
 # wait for video to load
 time.sleep(1)
@@ -465,6 +462,7 @@ sightDebug = False
 isStopSignBool = False
 while counter < max_ticks:
     ret, original_frame = video.read()
+    # copy 
     frame = cv2.resize(original_frame, (160, 120))
     if sightDebug:
         cv2.imshow("Resized Frame", frame)
