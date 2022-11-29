@@ -408,7 +408,23 @@ def plot_pwm(speed_pwms, turn_pwms, error, show_img=False):
     if show_img:
         plt.show()
     plt.clf()
+    
+def get_encoder_time():
+	# open the driver
+	driver_file = open("/dev/encoder_driver")
+	# read from the driver
+	line = driver_file.readline()
+	# convert to an int
+	line = line.strip()
+	value = int(line)
+	# close driver
+	driver_file.close()
+	# return the value
+	return value
 
+
+print(get_encoder_time())
+exit()
 
 # set up the car throttle and steering PWMs
 initialize_car()
