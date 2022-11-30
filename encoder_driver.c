@@ -31,6 +31,7 @@ static struct class *encoder_driver_class = NULL;
 static struct device *encoder_driver_device = NULL;
 static int times_called = 0;
 static char message[256] = {0};
+static int last_diff = 0;
 static short size_of_message;
 
 static DEFINE_MUTEX(encoder_mutex);
@@ -85,11 +86,24 @@ static int device_open(struct inode *inodep, struct file *filep){
 
 static ssize_t device_read(struct file *filep, char __user *buf, size_t length, loff_t *offset){
 	long error_count;
+	u64 call_time;
+	u64 call_diff;
 	if(already_read == 1)
 	{
 		return 0; //send EOF
 	}
 	already_read = 1;
+	
+	call_time = ktime_get_ns();
+	call_diff = call_time - last_time;
+	printk("User queried driver, call_diff = %lu, last_diff = %lu\n", (unsigned long) call_diff, (unsigned long) last_diff);
+	if (call_diff > 3*last_diff)
+	{
+		printk("Updating message because of call_diff\n!");
+		last_diff = call_diff;
+		sprintf(message, "%lu\n", (unsigned long) call_diff);
+		size_of_message = strlen(message);
+	}
 	error_count = copy_to_user(buf, message, size_of_message);
 	printk("Sent %d characters to user!\n", size_of_message);
 	printk("User should have received message: %s\n", message);
@@ -149,6 +163,7 @@ static int encoder_probe(struct platform_device *pdev)
 	sprintf(message, "%lu\n", (unsigned long) last_time);
 	size_of_message = strlen(message);
 	printk("Initial message reads %s!\n", message);
+	last_diff = last_time;
 	already_read = 0;
 	//print installation message
 	printk("Driver Installed!\n");
@@ -199,6 +214,7 @@ static irq_handler_t encoder_irq_handler(unsigned int irq, void *dev_id, struct 
 		sprintf(message, "%lu\n", (unsigned long) diff);
 		size_of_message = strlen(message);
 		printk("Detected an encode press, time difference was %lu nanoseconds", (unsigned long) diff);
+		last_diff = diff;
 	}
 	
 	return (irq_handler_t) IRQ_HANDLED;
