@@ -17,6 +17,7 @@ class BB_PWM():
         else:
 
             period = int((cycle / 100.0) * 20000000)
+            period = int(period - (period % 1000))
 
             if pin == "P9_14":
                 with open('/dev/bone/pwm/1/a/duty_cycle', 'w') as filetowrite:

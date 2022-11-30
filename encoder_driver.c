@@ -35,6 +35,7 @@ static int last_diff = 0;
 static short size_of_message;
 
 static DEFINE_MUTEX(encoder_mutex);
+static DEFINE_MUTEX(interrupt_mutex);
 
 static int already_read;
 
@@ -93,10 +94,11 @@ static ssize_t device_read(struct file *filep, char __user *buf, size_t length, 
 		return 0; //send EOF
 	}
 	already_read = 1;
-	
 	call_time = ktime_get_ns();
 	call_diff = call_time - last_time;
 	printk("User queried driver, call_diff = %lu, last_diff = %lu\n", (unsigned long) call_diff, (unsigned long) last_diff);
+	while(mutex_is_locked(&interrupt_mutex));
+	mutex_lock(&interrupt_mutex);
 	if (call_diff > 3*last_diff)
 	{
 		printk("Updating message because of call_diff\n!");
@@ -105,6 +107,7 @@ static ssize_t device_read(struct file *filep, char __user *buf, size_t length, 
 		size_of_message = strlen(message);
 	}
 	error_count = copy_to_user(buf, message, size_of_message);
+	mutex_unlock(&interrupt_mutex);
 	printk("Sent %d characters to user!\n", size_of_message);
 	printk("User should have received message: %s\n", message);
 	return size_of_message;
@@ -125,6 +128,7 @@ static int encoder_probe(struct platform_device *pdev)
 {
 	//declare variables
 	int ret;
+	mutex_init(&interrupt_mutex);
 	printk("Starting probe function!\n");
 	hello_init();
 	//get device
@@ -210,13 +214,15 @@ static irq_handler_t encoder_irq_handler(unsigned int irq, void *dev_id, struct 
 	{
 		//only count when greater than 1 ms
 		//set last to curr
+		while(mutex_is_locked(&interrupt_mutex));
+		mutex_lock(&interrupt_mutex);
 		last_time = curr_time;
 		sprintf(message, "%lu\n", (unsigned long) diff);
+		mutex_unlock(&interrupt_mutex);
 		size_of_message = strlen(message);
 		printk("Detected an encode press, time difference was %lu nanoseconds", (unsigned long) diff);
 		last_diff = diff;
 	}
-	
 	return (irq_handler_t) IRQ_HANDLED;
 }
 
