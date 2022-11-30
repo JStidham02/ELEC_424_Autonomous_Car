@@ -462,9 +462,6 @@ def init_video():
     video.set(cv2.CAP_PROP_FRAME_WIDTH, 160)
     video.set(cv2.CAP_PROP_FRAME_HEIGHT, 120)
 
-    cv2.namedWindow("original")
-    cv2.namedWindow("heading line")
-
     # wait for video to load
     time.sleep(1)
 
@@ -511,6 +508,9 @@ def main_loop():
     global stopSignCheck
     global passed_first_stop_sign
     global secondStopSignTick
+
+    cv2.namedWindow("original")
+    cv2.namedWindow("heading line")
 
 
     while counter < max_ticks:
@@ -572,6 +572,8 @@ def main_loop():
         if sightDebug:
             cv2.imshow("Cropped sight", roi)
         deviation = steering_angle - 90
+        # note positive deviation means need to turn right
+        # negative deviation means we need to turn left
 
         print("deviation: " + deviation.__str__())
         print("Steering angle: " + steering_angle.__str__())
