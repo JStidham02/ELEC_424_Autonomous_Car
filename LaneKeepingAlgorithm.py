@@ -4,35 +4,49 @@ import matplotlib.pyplot as plt
 import math
 import sys
 import time
-#import Adafruit_BBIO.PWM as PWM
 import bb_pwm # library we wrote
+from pid import Error_PID_Controller
 
 # based on: https://www.instructables.com/Autonomous-Lane-Keeping-Car-Using-Raspberry-Pi-and/
 
 # Throttle
-throttlePin = "P9_14"
-go_forward = 7.91
-go_faster_addition = 0.022
-go_faster_tick_delay = 80
-go_faster_tick = 0  # Do not change this here. Code will set this value after seeing stop sign
-dont_move = 7.5
 
-# Steering
-steeringPin = "P9_16"
-left = 9
-right = 6
+def define_globals():
+    global throttle_pin
+    throttle_pin = "P9_14"
+    #go_forward = 7.91
 
-# Max number of loops
-max_ticks = 2000
+    # Steering
+    global steering_pin
+    steering_pin = "P9_16"
 
-# Booleans for handling stop light
-passedStopLight = False
-atStopLight = False
-passedFirstStopSign = False
+    # Max number of loops
+    global max_ticks
+    max_ticks = 2000
 
-secondStopLightTick = 0
+    # Booleans for handling stop light
+    global passed_stop_light
+    passed_stop_light = False
+    global at_stop_light
+    at_stop_light = False
+    global passed_first_stop_sign
+    passed_first_stop_sign = False
 
-PWM = bb_pwm.BB_PWM()
+    global PWM
+    PWM = bb_pwm.BB_PWM()
+
+    # this is a PID Controller that should be used to control the car's steering
+    global steering_pid
+    steering_pid = Error_PID_Controller()
+
+    # this is a PID Controller that should be used to control the speed of the car
+    global speed_pid
+    speed_pid = Error_PID_Controller()
+
+    # this boolean is used to tell the car to stop
+    # it should override any output from the PID controller
+    global stopped
+    stopped = True
 
 
 def getRedFloorBoundaries():
@@ -155,14 +169,12 @@ def getBoundaries(filename):
 
 
 def initialize_car():
-    # give 7.5% duty at 50Hz to throttle
-    #PWM.start(throttlePin, dont_move, frequency=50)
-    PWM.default_vals(throttlePin)
+    # give 7.75% duty at 50Hz to throttle
+    PWM.default_vals(throttle_pin)
     # wait for car to be ready
     print("Set throttle to default value, press enter when ESC calibrated")
     input()
-    PWM.default_vals(steeringPin)
-    #PWM.start(steeringPin, dont_move, frequency=50)
+    PWM.default_vals(steering_pin)
     return
 
 
@@ -171,9 +183,10 @@ def stop():
     Stops the car
     :return: none
     """
-    PWM.default_vals(throttlePin)
-    #PWM.set_duty_cycle(throttlePin, dont_move)
-    return
+    PWM.default_vals(throttle_pin)
+    global stopped
+    if(stopped):
+        PWM.default_vals()
 
 
 def go():
@@ -181,7 +194,7 @@ def go():
     Sends the car forward at a default PWM
     :return: none
     """
-    #PWM.set_duty_cycle(throttlePin, go_forward)
+    #PWM.set_duty_cycle(throttle_pin, go_forward)
     return
 
 
@@ -190,7 +203,7 @@ def go_faster():
     Sends the car forward at a faster default PWM
     :return: none
     """
-    #PWM.set_duty_cycle(throttlePin, go_forward + go_faster_addition)
+    #PWM.set_duty_cycle(throttle_pin, go_forward + go_faster_addition)
     return
 
 
@@ -199,7 +212,7 @@ def go_backwards():
     (Attempts to) send the car backwards
     :return: none
     """
-    #PWM.set_duty_cycle(throttlePin, 7.1)
+    #PWM.set_duty_cycle(throttle_pin, 7.1)
     return
 
 
@@ -426,28 +439,31 @@ def get_encoder_time():
 # set up the car throttle and steering PWMs
 initialize_car()
 
-# set up video
-video = cv2.VideoCapture(2)
-video.set(cv2.CAP_PROP_FRAME_WIDTH, 160)
-video.set(cv2.CAP_PROP_FRAME_HEIGHT, 120)
+def init_video():
+    global video
+    # set up video
+    video = cv2.VideoCapture(2)
+    video.set(cv2.CAP_PROP_FRAME_WIDTH, 160)
+    video.set(cv2.CAP_PROP_FRAME_HEIGHT, 120)
 
-# wait for video to load
-time.sleep(1)
+    cv2.namedWindow("original")
+    cv2.namedWindow("heading line")
 
-# PD variables
-kp = 0.085
-kd = kp * 0.1
-lastTime = 0
-lastError = 0
+    # wait for video to load
+    time.sleep(1)
+
+
+def init_pids():
+    global steering_pid
+    global speed_pid
+
+    # tune PIDs here
 
 # counter for number of ticks
 counter = 0
 
 # start the engines
 go()
-
-cv2.namedWindow("original")
-cv2.namedWindow("heading line")
 
 # arrays for making the final graphs
 p_vals = []
@@ -461,6 +477,7 @@ stopSignCheck = 1
 sightDebug = False
 isStopSignBool = False
 while counter < max_ticks:
+    print(counter)
     ret, original_frame = video.read()
     # copy 
     frame = cv2.resize(original_frame, (160, 120))
@@ -470,16 +487,16 @@ while counter < max_ticks:
     # check for stop sign/traffic light every couple ticks
     if ((counter + 1) % stopSignCheck) == 0:
         # check for stop light
-        if not passedStopLight and not atStopLight:
+        if not passed_stop_light and not at_stop_light:
             trafficStopBool, _ = isTrafficRedLightVisible(frame)
-            print(trafficStopBool)
+            #print(trafficStopBool)
             if trafficStopBool:
                 print("detected red light, stopping")
                 stop()
-                atStopLight = True
+                at_stop_light = True
                 continue
         # check for the first stop sign
-        elif passedStopLight and not passedFirstStopSign:
+        elif passed_stop_light and not passed_first_stop_sign:
             isStopSignBool, floorSight = isRedFloorVisible(frame)
             if sightDebug:
                 cv2.imshow("floorSight", floorSight)
@@ -487,7 +504,7 @@ while counter < max_ticks:
                 print("detected first stop sign, stopping")
                 stop()
                 time.sleep(2)
-                passedFirstStopSign = True
+                passed_first_stop_sign = True
                 # this is used to not check for the second stop sign until many frames later
                 secondStopSignTick = counter + 200
                 # now check for stop sign less frequently
@@ -496,7 +513,7 @@ while counter < max_ticks:
                 go_faster_tick = counter + go_faster_tick_delay
                 print("first stop finished!")
         # check for the second stop sign
-        elif passedStopLight and passedFirstStopSign and counter > secondStopSignTick:
+        elif passed_stop_light and passed_first_stop_sign and counter > secondStopSignTick:
             isStop2SignBool, _ = isRedFloorVisible(frame)
             print("is a floor stop: ", isStopSignBool)
             if isStop2SignBool:
@@ -505,19 +522,13 @@ while counter < max_ticks:
                 stop()
                 break
 
-    # makes car go faster, helps it have enough speed to get to the end of the course
-    if isStopSignBool and counter == go_faster_tick:
-        print("Going FASTER")
-        go_faster()
-        current_speed += go_faster_addition
-
     # look for green stop light while waiting after red stop light
-    if not passedStopLight and atStopLight:
+    if not passed_stop_light and at_stop_light:
         print("waiting at red light")
         trafficGoBool, _ = isTrafficGreenLightVisible(frame)
         if trafficGoBool:
-            passedStopLight = True
-            atStopLight = False
+            passed_stop_light = True
+            at_stop_light = False
             print("green light!")
             go()
         else:
@@ -564,7 +575,7 @@ while counter < max_ticks:
         turn_amt = right
 
     # turn!
-    #PWM.set_duty_cycle(steeringPin, turn_amt)
+    #PWM.set_duty_cycle(steering_pin, turn_amt)
 
     # take values for graphs
     steer_pwm.append(turn_amt)
@@ -583,12 +594,12 @@ while counter < max_ticks:
 # clean up resources
 video.release()
 cv2.destroyAllWindows()
-#PWM.set_duty_cycle(throttlePin, 7.5)
-#PWM.set_duty_cycle(steeringPin, 7.5)
-PWM.default_vals(throttlePin)
-PWM.default_vals(steeringPin)
-#PWM.stop(throttlePin)
-#PWM.stop(steeringPin)
+#PWM.set_duty_cycle(throttle_pin, 7.5)
+#PWM.set_duty_cycle(steering_pin, 7.5)
+PWM.default_vals(throttle_pin)
+PWM.default_vals(steering_pin)
+#PWM.stop(throttle_pin)
+#PWM.stop(steering_pin)
 #PWM.cleanup()
 
 plot_pd(p_vals, d_vals, err_vals, True)
