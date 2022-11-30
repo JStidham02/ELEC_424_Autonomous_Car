@@ -589,27 +589,27 @@ def main_loop():
     while counter < max_ticks:
         # print counter value to console
         print(counter, flush = True)
-        print("Reading Video")
+        #print("Reading Video")
         # read frame
         ret, original_frame = video.read()
-        print("read video", flush = True)
+        #print("read video", flush = True)
         # copy/resize frame
         frame = cv2.resize(original_frame, (160, 120))
-        print("resized video", flush = True)
+        #print("resized video", flush = True)
         if sightDebug:
             cv2.imshow("Resized Frame", frame)
 
         # check for stop sign/traffic light every couple ticks
         if ((counter + 1) % stopSignCheck) == 0:
-            print("In first if statement", flush = True)
+            #print("In first if statement", flush = True)
 
             # removed stop light logic - not needed for undergrad teams
 
             # check for the first stop sign
             if not passed_first_stop_sign:
-                print("In first nested if, checking for stop sign", flush = True)
+                #print("In first nested if, checking for stop sign", flush = True)
                 isStopSignBool, floorSight = isRedFloorVisible(frame)
-                print("checked for stop sign")
+                #print("checked for stop sign")
                 if sightDebug:
                     cv2.imshow("floorSight", floorSight)
                 if isStopSignBool:
@@ -624,9 +624,9 @@ def main_loop():
                     print("first stop finished!", flush = True)
             # check for the second stop sign
             elif passed_first_stop_sign and counter > secondStopSignTick:
-                print("In nested elif in if statement", flush = True)
+                #print("In nested elif in if statement", flush = True)
                 isStop2SignBool, _ = isRedFloorVisible(frame)
-                print("is a floor stop: ", isStopSignBool)
+                #print("is a floor stop: ", isStopSignBool)
                 if isStop2SignBool:
                     # last stop sign detected, exits while loop
                     print("detected second stop sign, stopping", flush = True)
@@ -637,15 +637,15 @@ def main_loop():
 
         # process the frame to determine the desired steering angle
         #cv2.imshow("original",frame)
-        print("Detecting edges")
+        #print("Detecting edges")
         edges = detect_edges(frame)
-        print("Calculateing regions of interest")
+        #print("Calculateing regions of interest")
         roi = region_of_interest(edges)
-        print("calculating line segments", flush = True)
+        #print("calculating line segments", flush = True)
         line_segments = detect_line_segments(roi)
-        print("calculating averate slope", flush = True)
+        #print("calculating averate slope", flush = True)
         lane_lines = average_slope_intercept(frame, line_segments)
-        print("Computing steering angle", flush = True)
+        #print("Computing steering angle", flush = True)
         #lane_lines_image = display_lines(frame, lane_lines)
         steering_angle = get_steering_angle(frame, lane_lines)
         #heading_image = display_heading_line(lane_lines_image,steering_angle)
