@@ -497,9 +497,9 @@ def init_pids():
     steering_pid.set_i_gain(0)
     steering_pid.set_d_gain(0.5)
 
-    speed_pid.set_p_gain(-0.001)
+    speed_pid.set_p_gain(0.001)
     speed_pid.set_i_gain(0)
-    speed_pid.set_d_gain(-0.0001)
+    speed_pid.set_d_gain(0.0001)
 
     # degrees from straight
     steering_pid.set_target(0)
@@ -605,10 +605,10 @@ def main_loop():
 
         # PD Code
         steering_pid.update_pid(deviation)
-        time = get_encoder_time()
+        encoder_time = get_encoder_time()
         # convert ns to us
-        time = time / 1000
-        speed_pid.update_pid(time)
+        encoder_time = encoder_time / 1000
+        speed_pid.update_pid(encoder_time)
 
         update_throttle()
         update_steering()
