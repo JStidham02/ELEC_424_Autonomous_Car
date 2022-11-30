@@ -66,6 +66,12 @@ def define_globals():
     speed_pwm = []
     global steer_pwm
     steer_pwm = []
+    global speed_p_vals
+    speed_p_vals = []
+    global speed_d_vals
+    speed_d_vals = []
+    global speed_err_vals
+    speed_err_vals = []
 
     global stopSignCheck
     stopSignCheck = 1
@@ -407,6 +413,25 @@ def plot_pd(p_vals, d_vals, error, show_img=False):
 
     plt.clf()
 
+def plot_speed_pd(p_vals, d_vals, error, show_img=False):
+    fig, ax1 = plt.subplots()
+    t_ax = np.arange(len(p_vals))
+    ax1.plot(t_ax, p_vals, '-', label="P values")
+    ax1.plot(t_ax, d_vals, '-', label="D values")
+    ax2 = ax1.twinx()
+    ax2.plot(t_ax, error, '--r', label="Error")
+
+    ax1.set_xlabel("Frames")
+    ax1.set_ylabel("PD Value")
+    ax2.set_ylabel("Error Value")
+
+    plt.title("PD Values over time")
+    fig.legend()
+    fig.tight_layout()
+    plt.savefig("speed_pd_plot.png")
+
+    plt.clf()
+
 
 def plot_pwm(speed_pwms, turn_pwms, error, show_img=False):
     fig, ax1 = plt.subplots()
@@ -446,22 +471,30 @@ def update_throttle():
     global throttle_pin
     global stopped
     global speed_pwm
+    global speed_p_vals
+    global speed_d_vals
+    global speed_err_vals
     global PWM
     # get value from PID
     pid_val = speed_pid.get_output_val()
-    new_cycle = 7.75 + pid_val
+    new_cycle = 8 + pid_val
     if(new_cycle > 9):
         new_cycle = 9 # full speed
         print("Speed PID value too large")
-    elif new_cycle < 7.75:
-        new_cycle = 7.75 #stopped
+    elif new_cycle < 8:
+        new_cycle = 8 #stopped
         print("Speed PID value underflow")
     if stopped:
         PWM.default_vals(throttle_pin)
-        speed_pwm.append(new_cycle, 7.75)
+        speed_pwm.append(new_cycle, 8)
     else:
         PWM.set_duty_cycle(throttle_pin, new_cycle)
         speed_pwm.append(new_cycle)
+
+    speed_p_vals.append(speed_pid.get_p_gain() * speed_pid.get_error())
+    speed_d_vals.append(speed_pid.get_d_gain() * speed_pid.get_error_derivative())
+    speed_err_vals.append(speed_pid.get_error())
+
     return
 
 def update_steering():
@@ -508,9 +541,9 @@ def init_pids():
     steering_pid.set_i_gain(0)
     steering_pid.set_d_gain(0.005)
 
-    speed_pid.set_p_gain(0.001)
+    speed_pid.set_p_gain(0.000001)
     speed_pid.set_i_gain(0)
-    speed_pid.set_d_gain(0.0001)
+    speed_pid.set_d_gain(0.000001)
 
     # degrees from straight
     steering_pid.set_target(0)
@@ -620,6 +653,7 @@ def main_loop():
         # convert ns to us
         encoder_time = encoder_time / 1000
         speed_pid.update_pid(encoder_time)
+        print("Encoder time was " + encoder_time.__str__() + " us")
 
         update_throttle()
         update_steering()
@@ -651,6 +685,7 @@ def cleanup():
     #PWM.cleanup()
 
     plot_pd(p_vals, d_vals, err_vals, True)
+    plot_speed_pd(speed_p_vals, speed_d_vals, speed_err_vals, True)
     plot_pwm(speed_pwm, steer_pwm, err_vals, True)
 
 

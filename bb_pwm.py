@@ -39,7 +39,7 @@ class BB_PWM():
 
         if pin == "P9_14": # motor
             with open('/dev/bone/pwm/1/a/duty_cycle', 'w') as filetowrite:
-                filetowrite.write("1550000")
+                filetowrite.write("1600000")
             return True
         elif pin == "P9_16": # steering
             with open('/dev/bone/pwm/1/b/duty_cycle', 'w') as filetowrite:

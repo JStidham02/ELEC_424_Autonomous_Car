@@ -98,7 +98,7 @@ class Error_PID_Controller():
 
         It returns the new controller output value, which can alse be retrieved from the get_output_val method
         """
-        error = new_val - self.desierd
+        error = self.desierd - new_val
         self.integral = self.integral + error
         self.derivative = error - self.last_error
         self.last_error = error
