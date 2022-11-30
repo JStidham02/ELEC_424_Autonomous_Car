@@ -482,9 +482,9 @@ def update_steering():
         new_cycle = 6
         print("Steering PID Output is lower than minimum steering value")
     PWM.set_duty_cycle(steering_pin, new_cycle)
-    p_vals.append(steering_pid.get_p_gain * steering_pid.get_error)
-    d_vals.append(steering_pid.get_d_gain * steering_pid.get_error_derivative)
-    err_vals.append(steering_pid.get_error)
+    p_vals.append(steering_pid.get_p_gain() * steering_pid.get_error())
+    d_vals.append(steering_pid.get_d_gain() * steering_pid.get_error_derivative())
+    err_vals.append(steering_pid.get_error())
     steer_pwm.append(new_cycle)
     return
 
@@ -504,9 +504,9 @@ def init_pids():
     global steering_pid
     global speed_pid
 
-    steering_pid.set_p_gain(0.5)
+    steering_pid.set_p_gain(0.005)
     steering_pid.set_i_gain(0)
-    steering_pid.set_d_gain(0.5)
+    steering_pid.set_d_gain(0.005)
 
     speed_pid.set_p_gain(0.001)
     speed_pid.set_i_gain(0)
