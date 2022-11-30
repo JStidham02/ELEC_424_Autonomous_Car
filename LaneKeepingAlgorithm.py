@@ -185,8 +185,7 @@ def stop():
     """
     PWM.default_vals(throttle_pin)
     global stopped
-    if(stopped):
-        PWM.default_vals()
+    stopped = True
 
 
 def go():
@@ -204,6 +203,8 @@ def go_faster():
     :return: none
     """
     #PWM.set_duty_cycle(throttle_pin, go_forward + go_faster_addition)
+    global stopped
+    stopped = False
     return
 
 
@@ -471,49 +472,43 @@ d_vals = []
 err_vals = []
 speed_pwm = []
 steer_pwm = []
-current_speed = go_forward
 
 stopSignCheck = 1
 sightDebug = False
 isStopSignBool = False
 while counter < max_ticks:
+    # print counter value to console
     print(counter)
+    # read frame
     ret, original_frame = video.read()
-    # copy 
+    # copy/resize frame
     frame = cv2.resize(original_frame, (160, 120))
     if sightDebug:
         cv2.imshow("Resized Frame", frame)
 
     # check for stop sign/traffic light every couple ticks
     if ((counter + 1) % stopSignCheck) == 0:
-        # check for stop light
-        if not passed_stop_light and not at_stop_light:
-            trafficStopBool, _ = isTrafficRedLightVisible(frame)
-            #print(trafficStopBool)
-            if trafficStopBool:
-                print("detected red light, stopping")
-                stop()
-                at_stop_light = True
-                continue
+
+        # removed stop light logic - not needed for undergrad teams
+
         # check for the first stop sign
-        elif passed_stop_light and not passed_first_stop_sign:
+        if not passed_first_stop_sign:
             isStopSignBool, floorSight = isRedFloorVisible(frame)
             if sightDebug:
                 cv2.imshow("floorSight", floorSight)
             if isStopSignBool:
-                print("detected first stop sign, stopping")
+                print("Detected first stop sign, stopping")
                 stop()
+                stopped = True
                 time.sleep(2)
                 passed_first_stop_sign = True
                 # this is used to not check for the second stop sign until many frames later
-                secondStopSignTick = counter + 200
+                secondStopSignTick = counter + 500
                 # now check for stop sign less frequently
                 stopSignCheck = 3
-                # add a delay to calling go faster
-                go_faster_tick = counter + go_faster_tick_delay
                 print("first stop finished!")
         # check for the second stop sign
-        elif passed_stop_light and passed_first_stop_sign and counter > secondStopSignTick:
+        elif passed_first_stop_sign and counter > secondStopSignTick:
             isStop2SignBool, _ = isRedFloorVisible(frame)
             print("is a floor stop: ", isStopSignBool)
             if isStop2SignBool:
@@ -521,18 +516,8 @@ while counter < max_ticks:
                 print("detected second stop sign, stopping")
                 stop()
                 break
-
-    # look for green stop light while waiting after red stop light
-    if not passed_stop_light and at_stop_light:
-        print("waiting at red light")
-        trafficGoBool, _ = isTrafficGreenLightVisible(frame)
-        if trafficGoBool:
-            passed_stop_light = True
-            at_stop_light = False
-            print("green light!")
-            go()
-        else:
-            continue
+    
+    # removed more stop light logic here - not needed
 
     # process the frame to determine the desired steering angle
     cv2.imshow("original",frame)
@@ -546,45 +531,42 @@ while counter < max_ticks:
     cv2.imshow("heading line",heading_image)
 
     # calculate changes for PD
-    now = time.time()
-    dt = now - lastTime
+    #now = time.time()
+    #dt = now - lastTime
     if sightDebug:
         cv2.imshow("Cropped sight", roi)
     deviation = steering_angle - 90
 
+    print("deviation: " + deviation)
+    print("Steering angle: " + steering_angle)
+
     # PD Code
-    error = -deviation
-    base_turn = 7.5
-    proportional = kp * error
-    derivative = kd * (error - lastError) / dt
+    #error = -deviation
+    #base_turn = 7.5
+    #proportional = kp * error
+    #derivative = kd * (error - lastError) / dt
 
     # take values for graphs
-    p_vals.append(proportional)
-    d_vals.append(derivative)
-    err_vals.append(error)
+    #p_vals.append(proportional)
+    #d_vals.append(derivative)
+    #err_vals.append(error)
 
     # determine actual turn to do
-    turn_amt = base_turn + proportional + derivative
+    #turn_amt = base_turn + proportional + derivative
 
-    # caps turns to make PWM values
-    if 7.2 < turn_amt < 7.8:
-        turn_amt = 7.5
-    elif turn_amt > left:
-        turn_amt = left
-    elif turn_amt < right:
-        turn_amt = right
+    # TODO implement turning here
 
-    # turn!
-    #PWM.set_duty_cycle(steering_pin, turn_amt)
+    # TODO implemented SPEED PID here
 
     # take values for graphs
-    steer_pwm.append(turn_amt)
-    speed_pwm.append(current_speed)
+    #steer_pwm.append(turn_amt)
+    #speed_pwm.append(current_speed)
 
     # update PD values for next loop
-    lastError = error
-    lastTime = time.time()
+    #lastError = error
+    #lastTime = time.time()
 
+    # escape exits
     key = cv2.waitKey(1)
     if key == 27:
         break
