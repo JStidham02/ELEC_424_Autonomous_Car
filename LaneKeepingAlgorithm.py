@@ -475,11 +475,12 @@ def update_throttle():
     global speed_d_vals
     global speed_err_vals
     global PWM
+    global counter
     # get value from PID
     pid_val = speed_pid.get_output_val()
     new_cycle = 8 + pid_val
-    if(new_cycle > 9):
-        new_cycle = 9 # full speed
+    if(new_cycle > 8.6):
+        new_cycle = 8.6 # full speed
         print("Speed PID value too large")
     elif new_cycle < 8:
         new_cycle = 8 #stopped
@@ -489,6 +490,8 @@ def update_throttle():
         speed_pwm.append(new_cycle, 8)
     else:
         PWM.set_duty_cycle(throttle_pin, new_cycle)
+        if counter < 10:
+            PWM.set_duty_cycle(throttle_pin, 8.6)
         speed_pwm.append(new_cycle)
 
     speed_p_vals.append(speed_pid.get_p_gain() * speed_pid.get_error())
@@ -541,15 +544,15 @@ def init_pids():
     steering_pid.set_i_gain(0)
     steering_pid.set_d_gain(0.005)
 
-    speed_pid.set_p_gain(0.000001)
+    speed_pid.set_p_gain(-0.000004)
     speed_pid.set_i_gain(0)
-    speed_pid.set_d_gain(0.000001)
+    speed_pid.set_d_gain(-0.000000004)
 
     # degrees from straight
     steering_pid.set_target(0)
 
     # convert times from ns to us
-    speed_pid.set_target(40000) # set to 40 ms
+    speed_pid.set_target(10000) # set to 10 ms
 
 
     # tune PIDs here
