@@ -448,12 +448,12 @@ def update_throttle():
     global PWM
     # get value from PID
     pid_val = speed_pid.get_output_val()
-    new_cycle = 8 + pid_val()
+    new_cycle = 7.75 + pid_val
     if(new_cycle > 9):
         new_cycle = 9 # full speed
         print("Speed PID value too large")
-    elif new_cycle < 8:
-        new_cycle = 8 #stopped
+    elif new_cycle < 7.75:
+        new_cycle = 7.75 #stopped
         print("Speed PID value underflow")
     if stopped:
         PWM.default_vals(throttle_pin)
