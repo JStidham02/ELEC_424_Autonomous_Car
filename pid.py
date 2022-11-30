@@ -39,6 +39,12 @@ class Error_PID_Controller():
         self.p_gain = gain
         return True
 
+    def get_p_gain(self):
+        """
+        This method gets the proportional gain
+        """
+        return self.p_gain
+
 
     def set_i_gain(self, gain):
         """
@@ -46,6 +52,12 @@ class Error_PID_Controller():
         """
         self.i_gain = gain
         return True
+
+    def get_i_gain(self):
+        """
+        This method gets the integral gain
+        """
+        return self.i_gain
 
 
     def set_d_gain(self, gain):
@@ -55,6 +67,23 @@ class Error_PID_Controller():
         self.d_gain = gain
         return True
 
+    def get_d_gain(self):
+        """
+        This method gets the derivative gain
+        """
+        return self.d_gain
+
+    def get_error(self):
+
+        return self.last_error
+
+    def get_error_derivative(self):
+
+        return self.derivative
+
+    def get_error_integral(self):
+
+        return self.integral
 
     def get_output_val(self):
         """

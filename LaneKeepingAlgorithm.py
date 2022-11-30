@@ -445,6 +445,7 @@ def update_throttle():
     global speed_pid
     global throttle_pin
     global stopped
+    global speed_pwm
     global PWM
     # get value from PID
     pid_val = speed_pid.get_output_val()
@@ -457,14 +458,20 @@ def update_throttle():
         print("Speed PID value underflow")
     if stopped:
         PWM.default_vals(throttle_pin)
+        speed_pwm.append(new_cycle, 7.75)
     else:
         PWM.set_duty_cycle(throttle_pin, new_cycle)
+        speed_pwm.append(new_cycle)
     return
 
 def update_steering():
     # TODO this
     global steering_pid
     global steering_pin
+    global p_vals
+    global d_vals
+    global err_vals
+    global steer_pwm
     global PWM
     pid_val = steering_pid.get_output_val()
     new_cycle = 7.5 + pid_val
@@ -475,6 +482,10 @@ def update_steering():
         new_cycle = 6
         print("Steering PID Output is lower than minimum steering value")
     PWM.set_duty_cycle(steering_pin, new_cycle)
+    p_vals.append(steering_pid.get_p_gain * steering_pid.get_error)
+    d_vals.append(steering_pid.get_d_gain * steering_pid.get_error_derivative)
+    err_vals.append(steering_pid.get_error)
+    steer_pwm.append(new_cycle)
     return
 
 
@@ -612,18 +623,7 @@ def main_loop():
 
         update_throttle()
         update_steering()
-
-        # take values for graphs
-        #p_vals.append(proportional)
-        #d_vals.append(derivative)
-        #err_vals.append(error)
-
-        # determine actual turn to do
-        #turn_amt = base_turn + proportional + derivative
-
-        # TODO implement turning here
-
-        # TODO implemented SPEED PID here
+        
 
         # take values for graphs
         #steer_pwm.append(turn_amt)
