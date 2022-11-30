@@ -9,8 +9,9 @@ import time
 import bb_pwm # library we wrote
 from pid import Error_PID_Controller
 
-# based on: https://www.instructables.com/Autonomous-Lane-Keeping-Car-Using-Raspberry-Pi-and/
 
+# based on: https://www.instructables.com/Autonomous-Lane-Keeping-Car-Using-Raspberry-Pi-and/
+# also based on https://www.hackster.io/really-bad-idea/autonomous-path-following-car-6c4992#code
 
 
 
@@ -218,7 +219,6 @@ def go():
     Sends the car forward at a default PWM
     :return: none
     """
-    #PWM.set_duty_cycle(throttle_pin, go_forward)
     global stopped
     stopped = False
     return
@@ -442,16 +442,39 @@ def get_encoder_time():
 
 def update_throttle():
     # TODO this
+    global speed_pid
+    global throttle_pin
+    global stopped
+    global PWM
     # get value from PID
-    # verify not too high or low
-    # set PWM
+    pid_val = speed_pid.get_output_val()
+    new_cycle = 8 + pid_val()
+    if(new_cycle > 9):
+        new_cycle = 9 # full speed
+        print("Speed PID value too large")
+    elif new_cycle < 8:
+        new_cycle = 8 #stopped
+        print("Speed PID value underflow")
+    if stopped:
+        PWM.default_vals(throttle_pin)
+    else:
+        PWM.set_duty_cycle(throttle_pin, new_cycle)
     return
 
 def update_steering():
     # TODO this
-    # get value from PID
-    # verify not too high or low
-    # set PWM
+    global steering_pid
+    global steering_pin
+    global PWM
+    pid_val = steering_pid.get_output_val()
+    new_cycle = 7.5 + pid_val
+    if new_cycle > 9:
+        new_cycle = 9
+        print("Steering PID Output exceeds max steering val")
+    elif new_cycle < 6:
+        new_cycle = 6
+        print("Steering PID Output is lower than minimum steering value")
+    PWM.set_duty_cycle(steering_pin, new_cycle)
     return
 
 
@@ -470,13 +493,13 @@ def init_pids():
     global steering_pid
     global speed_pid
 
-    steering_pid.set_p_gain(0)
+    steering_pid.set_p_gain(0.5)
     steering_pid.set_i_gain(0)
-    steering_pid.set_d_gain(0)
+    steering_pid.set_d_gain(0.5)
 
-    speed_pid.set_p_gain(0)
+    speed_pid.set_p_gain(-0.001)
     speed_pid.set_i_gain(0)
-    speed_pid.set_d_gain(0)
+    speed_pid.set_d_gain(-0.0001)
 
     # degrees from straight
     steering_pid.set_target(0)
@@ -508,6 +531,8 @@ def main_loop():
     global stopSignCheck
     global passed_first_stop_sign
     global secondStopSignTick
+    global steering_pid
+    global speed_pid
 
     cv2.namedWindow("original")
     cv2.namedWindow("heading line")
@@ -579,10 +604,14 @@ def main_loop():
         print("Steering angle: " + steering_angle.__str__())
 
         # PD Code
-        #error = -deviation
-        #base_turn = 7.5
-        #proportional = kp * error
-        #derivative = kd * (error - lastError) / dt
+        steering_pid.update_pid(deviation)
+        time = get_encoder_time()
+        # convert ns to us
+        time = time / 1000
+        speed_pid.update_pid(time)
+
+        update_throttle()
+        update_steering()
 
         # take values for graphs
         #p_vals.append(proportional)
