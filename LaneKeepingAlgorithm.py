@@ -509,6 +509,11 @@ def main_loop():
     global err_vals
     global speed_pwm
     global steer_pwm
+    global counter
+    global stopSignCheck
+    global passed_first_stop_sign
+    global secondStopSignTick
+
 
     while counter < max_ticks:
         # print counter value to console
@@ -570,8 +575,8 @@ def main_loop():
             cv2.imshow("Cropped sight", roi)
         deviation = steering_angle - 90
 
-        print("deviation: " + deviation)
-        print("Steering angle: " + steering_angle)
+        print("deviation: " + deviation.__str__())
+        print("Steering angle: " + steering_angle.__str__())
 
         # PD Code
         #error = -deviation
