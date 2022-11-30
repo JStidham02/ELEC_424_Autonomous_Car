@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 import sys
+import signal
+import keyboard
 import time
 import bb_pwm # library we wrote
 from pid import Error_PID_Controller
@@ -403,8 +405,6 @@ def plot_pd(p_vals, d_vals, error, show_img=False):
     fig.tight_layout()
     plt.savefig("pd_plot.png")
 
-    if show_img:
-        plt.show()
     plt.clf()
 
 
@@ -424,8 +424,6 @@ def plot_pwm(speed_pwms, turn_pwms, error, show_img=False):
     fig.legend()
     plt.savefig("pwm_plot.png")
 
-    if show_img:
-        plt.show()
     plt.clf()
     
 def get_encoder_time():
@@ -487,7 +485,7 @@ def init_pids():
     steering_pid.set_target(0)
 
     # convert times from ns to us
-    speed_pid.set_target(100000) # set to 100 ms
+    speed_pid.set_target(40000) # set to 40 ms
 
 
     # tune PIDs here
@@ -604,10 +602,7 @@ def main_loop():
         #lastError = error
         #lastTime = time.time()
 
-        # escape exits
-        key = cv2.waitKey(1)
-        if key == 27:
-            break
+
 
         counter += 1
 
@@ -631,6 +626,7 @@ def cleanup():
 
 
 
+
 # Main Script here
 
 
@@ -638,6 +634,9 @@ def cleanup():
 # Functions defined below
 
 main_init()
-main_loop()
+try:
+    main_loop()
+except KeyboardInterrupt:
+    print("Received command to exit early!")
 cleanup()
 
