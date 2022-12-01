@@ -80,6 +80,10 @@ def define_globals():
     global isStop2SignBool
     isStopSignBool = False
 
+    global avg
+    avg = 0
+    global results
+    results = []
 
 def getRedFloorBoundaries():
     """
@@ -395,11 +399,11 @@ def get_steering_angle(frame, lane_lines):
 
 def plot_pd(p_vals, d_vals, error, show_img=False):
     fig, ax1 = plt.subplots()
-    t_ax = np.arange(len(p_vals))
-    ax1.plot(t_ax, p_vals, '-', label="P values")
-    ax1.plot(t_ax, d_vals, '-', label="D values")
+    t_ax = np.arange(len(p_vals) - 10)
+    ax1.plot(t_ax, p_vals[10:], '-', label="P values")
+    ax1.plot(t_ax, d_vals[10:], '-', label="D values")
     ax2 = ax1.twinx()
-    ax2.plot(t_ax, error, '--r', label="Error")
+    ax2.plot(t_ax, error[10:], '--r', label="Error")
 
     ax1.set_xlabel("Frames")
     ax1.set_ylabel("PD Value")
@@ -415,11 +419,13 @@ def plot_pd(p_vals, d_vals, error, show_img=False):
 
 def plot_speed_pd(p_vals, d_vals, error, show_img=False):
     fig, ax1 = plt.subplots()
-    t_ax = np.arange(len(p_vals))
-    ax1.plot(t_ax, p_vals, '-', label="P values")
-    ax1.plot(t_ax, d_vals, '-', label="D values")
+    t_ax = np.arange(len(p_vals) - 10)
+    ax1.plot(t_ax, p_vals[10:], '-', label="P values")
+    ax1.plot(t_ax, d_vals[10:], '-', label="D values")
+    sum_vals = [sum(value) for value in zip(p_vals, d_vals)]
+    ax1.plot(t_ax, sum_vals[10:], '-', label="Sum PD values")
     ax2 = ax1.twinx()
-    ax2.plot(t_ax, error, '--r', label="Error")
+    ax2.plot(t_ax, error[10:], '--r', label="Error")
 
     ax1.set_xlabel("Frames")
     ax1.set_ylabel("PD Value")
@@ -435,11 +441,11 @@ def plot_speed_pd(p_vals, d_vals, error, show_img=False):
 
 def plot_pwm(speed_pwms, turn_pwms, error, show_img=False):
     fig, ax1 = plt.subplots()
-    t_ax = np.arange(len(speed_pwms))
-    ax1.plot(t_ax, speed_pwms, '-', label="Speed PWM")
-    ax1.plot(t_ax, turn_pwms, '-', label="Steering PWM")
+    t_ax = np.arange(len(speed_pwms) - 10)
+    ax1.plot(t_ax, speed_pwms[10:], '-', label="Speed PWM")
+    ax1.plot(t_ax, turn_pwms[10:], '-', label="Steering PWM")
     ax2 = ax1.twinx()
-    ax2.plot(t_ax, error, '--r', label="Error")
+    ax2.plot(t_ax, error[10:], '--r', label="Error")
 
     ax1.set_xlabel("Frames")
     ax1.set_ylabel("PWM Values")
@@ -478,19 +484,19 @@ def update_throttle():
     global counter
     # get value from PID
     pid_val = speed_pid.get_output_val()
-    new_cycle = 8 + pid_val
-    if(new_cycle > 8):
-        new_cycle = 8 # full speed
+    new_cycle = 7.75 + pid_val
+    if(new_cycle > 9):
+        new_cycle = 9 # full speed
         print("Speed PID value too large", flush = True)
-    elif new_cycle < 8:
-        new_cycle = 8 #stopped
+    elif new_cycle < 7.75:
+        new_cycle = 7.75 #stopped
         print("Speed PID value underflow", flush = True)
     if stopped:
         PWM.default_vals(throttle_pin)
-        speed_pwm.append(8)
+        speed_pwm.append(7.75)
     else:
         if counter < 10:
-            PWM.set_duty_cycle(throttle_pin, 8.4)
+            PWM.set_duty_cycle(throttle_pin, 7.75)
         else:
             PWM.set_duty_cycle(throttle_pin, new_cycle)
         speed_pwm.append(new_cycle)
@@ -541,20 +547,23 @@ def init_pids():
     global steering_pid
     global speed_pid
 
-    steering_pid.set_p_gain(0.008)
+    # steering_pid.set_p_gain(0.00005)
+    # steering_pid.set_i_gain(0)
+    # steering_pid.set_d_gain(0.0005)
+    steering_pid.set_p_gain(0)
     steering_pid.set_i_gain(0)
-    steering_pid.set_d_gain(0.008)
+    steering_pid.set_d_gain(0)
 
-    speed_pid.set_p_gain(-0.000008)
-    speed_pid.set_i_gain(0)
-    speed_pid.set_d_gain(-0.000000004)
+    speed_pid.set_p_gain(0.0045)
+    speed_pid.set_i_gain(0.0)
+    speed_pid.set_d_gain(0.005)
 
     # degrees from straight
     steering_pid.set_target(0)
 
     # convert times from ns to us
-    speed_pid.set_target(2000) # set to 5 ms
-
+    speed_pid.set_target(190) # set to 80 ms
+                        #13998775
 
     # tune PIDs here
 
@@ -581,6 +590,8 @@ def main_loop():
     global secondStopSignTick
     global steering_pid
     global speed_pid
+    global avg
+    global results
 
     #cv2.namedWindow("original")
     #cv2.namedWindow("heading line")
@@ -669,10 +680,27 @@ def main_loop():
         print("Getting Encoder time", flush = True)
         encoder_time = get_encoder_time()
         # convert ns to us
-        encoder_time = encoder_time / 1000
-        print("Updating speed PUD", flush = True)
-        speed_pid.update_pid(encoder_time)
+        encoder_time = encoder_time / 1000.0
+        print("Updating speed PID", flush = True)
+
+        if counter > 6 and counter <= 10:
+            results.append(encoder_time)
+            avg = sum(results) / len(results)
+        elif counter > 10:
+            results = results[1:]
+            results.append(encoder_time)
+            avg = sum(results) / len(results)
+        else:
+            avg = 10000000
+
+
+        
+        temp_avg = 1000000.0/avg
+        print("Average speed for loop: ", temp_avg)
+        
+        speed_pid.update_pid(temp_avg)
         print("Encoder time was " + encoder_time.__str__() + " us", flush = True)
+        print("Average value from encoder is: " + avg.__str__() + " ms", flush = True)
 
         print("Updating throttle", flush = True)
         update_throttle()

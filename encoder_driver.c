@@ -147,7 +147,7 @@ static int encoder_probe(struct platform_device *pdev)
 		return -1;
 	}
 	//set debounce
-	gpiod_set_debounce(button_desc, 1000000);
+	gpiod_set_debounce(button_desc, 1200000);
 	// get irq number
 	irq = gpiod_to_irq(button_desc);
 	if(irq < 0)
