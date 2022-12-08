@@ -21,7 +21,7 @@ results = []
 avg = []
 
 for i in range(num_samples):
-    new_time = 10000 / get_encoder_time()
+    new_time = 1000000.0 / get_encoder_time()
     results.append(new_time)
 
     if i == 0:

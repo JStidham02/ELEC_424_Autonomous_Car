@@ -18,15 +18,17 @@ from pid import Error_PID_Controller
 def define_globals():
     global throttle_pin
     throttle_pin = "P9_14"
+    # throttle_pin = "P9_16"
     #go_forward = 7.91
 
     # Steering
     global steering_pin
     steering_pin = "P9_16"
+    # steering_pin = "P9_14"
 
     # Max number of loops
     global max_ticks
-    max_ticks = 2000
+    max_ticks = 8000
 
     # Booleans for handling stop light
     global passed_stop_light
@@ -99,7 +101,7 @@ def isRedFloorVisible(frame):
     :param frame: Image
     :return: [(True is the camera sees a red on the floor, false otherwise), video output]
     """
-    print("Checking for floor stop", flush = True)
+    #print("Checking for floor stop", flush = True)
     boundaries = getRedFloorBoundaries()
     return isMostlyColor(frame, boundaries)
 
@@ -484,19 +486,19 @@ def update_throttle():
     global counter
     # get value from PID
     pid_val = speed_pid.get_output_val()
-    new_cycle = 7.75 + pid_val
-    if(new_cycle > 9):
-        new_cycle = 9 # full speed
+    new_cycle = 8.0 + pid_val
+    if(new_cycle > 8.9):
+        new_cycle = 8.9 # full speed
         print("Speed PID value too large", flush = True)
-    elif new_cycle < 7.75:
-        new_cycle = 7.75 #stopped
+    elif new_cycle < 8.0:
+        new_cycle = 8.0 #stopped
         print("Speed PID value underflow", flush = True)
     if stopped:
         PWM.default_vals(throttle_pin)
-        speed_pwm.append(7.75)
+        speed_pwm.append(8.0)
     else:
         if counter < 10:
-            PWM.set_duty_cycle(throttle_pin, 7.75)
+            PWM.set_duty_cycle(throttle_pin, 8.45)
         else:
             PWM.set_duty_cycle(throttle_pin, new_cycle)
         speed_pwm.append(new_cycle)
@@ -518,8 +520,8 @@ def update_steering():
     global PWM
     pid_val = steering_pid.get_output_val()
     new_cycle = 7.5 + pid_val
-    if new_cycle > 9:
-        new_cycle = 9
+    if new_cycle > 9.0:
+        new_cycle = 9.0
         print("Steering PID Output exceeds max steering val", flush = True)
     elif new_cycle < 6:
         new_cycle = 6
@@ -547,22 +549,26 @@ def init_pids():
     global steering_pid
     global speed_pid
 
-    # steering_pid.set_p_gain(0.00005)
-    # steering_pid.set_i_gain(0)
-    # steering_pid.set_d_gain(0.0005)
-    steering_pid.set_p_gain(0)
+    steering_pid.set_p_gain(0.036)
     steering_pid.set_i_gain(0)
-    steering_pid.set_d_gain(0)
+    steering_pid.set_d_gain(0.01)
+    #steering_pid.set_p_gain(0)
+    #steering_pid.set_i_gain(0)
+    #steering_pid.set_d_gain(0)
 
-    speed_pid.set_p_gain(0.0045)
+    # speed was 0.0055, 0.0, -0.008, 160
+
+
+    # speed_pid.set_p_gain(0.0045)
+    speed_pid.set_p_gain(0.0052) # was 0.006
     speed_pid.set_i_gain(0.0)
-    speed_pid.set_d_gain(0.005)
+    speed_pid.set_d_gain(-0.006)
 
     # degrees from straight
     steering_pid.set_target(0)
 
     # convert times from ns to us
-    speed_pid.set_target(190) # set to 80 ms
+    speed_pid.set_target(200) # set to 80 ms
                         #13998775
 
     # tune PIDs here
@@ -592,10 +598,11 @@ def main_loop():
     global speed_pid
     global avg
     global results
+    global stopClicks
 
     #cv2.namedWindow("original")
     #cv2.namedWindow("heading line")
-
+    stopClicks = -1
 
     while counter < max_ticks:
         # print counter value to console
@@ -621,24 +628,32 @@ def main_loop():
                 #print("In first nested if, checking for stop sign", flush = True)
                 isStopSignBool, floorSight = isRedFloorVisible(frame)
                 #print("checked for stop sign")
-                if sightDebug:
-                    cv2.imshow("floorSight", floorSight)
-                if isStopSignBool:
+                #if sightDebug:
+                cv2.imshow("floorSight", floorSight)
+                if isStopSignBool and stopClicks == -1:
+                    stopClicks = counter + 15
+                if stopClicks == counter:
                     print("Detected first stop sign, stopping", flush = True)
                     stop()
                     time.sleep(2)
+                    go()
                     passed_first_stop_sign = True
                     # this is used to not check for the second stop sign until many frames later
-                    secondStopSignTick = counter + 500
+                    secondStopSignTick = counter + 100
                     # now check for stop sign less frequently
                     stopSignCheck = 3
                     print("first stop finished!", flush = True)
+                    stopClicks = -1
             # check for the second stop sign
             elif passed_first_stop_sign and counter > secondStopSignTick:
                 #print("In nested elif in if statement", flush = True)
-                isStop2SignBool, _ = isRedFloorVisible(frame)
+                isStop2SignBool, floorSight = isRedFloorVisible(frame)
+                cv2.imshow("floorSight", floorSight)
                 #print("is a floor stop: ", isStopSignBool)
-                if isStop2SignBool:
+                if isStop2SignBool and stopClicks == -1:
+                    stopClicks = (counter + 15)
+                    print("Detected Second Stop Sign!")
+                if counter == stopClicks:
                     # last stop sign detected, exits while loop
                     print("detected second stop sign, stopping", flush = True)
                     stop()
@@ -657,10 +672,10 @@ def main_loop():
         #print("calculating averate slope", flush = True)
         lane_lines = average_slope_intercept(frame, line_segments)
         #print("Computing steering angle", flush = True)
-        #lane_lines_image = display_lines(frame, lane_lines)
+        lane_lines_image = display_lines(frame, lane_lines)
         steering_angle = get_steering_angle(frame, lane_lines)
-        #heading_image = display_heading_line(lane_lines_image,steering_angle)
-        #cv2.imshow("heading line",heading_image)
+        heading_image = display_heading_line(lane_lines_image,steering_angle)
+        cv2.imshow("heading line",heading_image)
 
         # calculate changes for PD
         #now = time.time()
@@ -671,17 +686,17 @@ def main_loop():
         # note positive deviation means need to turn right
         # negative deviation means we need to turn left
 
-        print("deviation: " + deviation.__str__(), flush = True)
-        print("Steering angle: " + steering_angle.__str__(), flush = True)
+        #print("deviation: " + deviation.__str__(), flush = True)
+        #print("Steering angle: " + steering_angle.__str__(), flush = True)
 
         # PD Code
-        print("Updating Steering PID", flush = True)
+        #print("Updating Steering PID", flush = True)
         steering_pid.update_pid(deviation)
-        print("Getting Encoder time", flush = True)
+        #print("Getting Encoder time", flush = True)
         encoder_time = get_encoder_time()
         # convert ns to us
         encoder_time = encoder_time / 1000.0
-        print("Updating speed PID", flush = True)
+        #print("Updating speed PID", flush = True)
 
         if counter > 6 and counter <= 10:
             results.append(encoder_time)
@@ -699,12 +714,12 @@ def main_loop():
         print("Average speed for loop: ", temp_avg)
         
         speed_pid.update_pid(temp_avg)
-        print("Encoder time was " + encoder_time.__str__() + " us", flush = True)
-        print("Average value from encoder is: " + avg.__str__() + " ms", flush = True)
+        #print("Encoder time was " + encoder_time.__str__() + " us", flush = True)
+        #print("Average value from encoder is: " + avg.__str__() + " ms", flush = True)
 
-        print("Updating throttle", flush = True)
+        #print("Updating throttle", flush = True)
         update_throttle()
-        print("Updating steering", flush = True)
+        #print("Updating steering", flush = True)
         update_steering()
         
         # take values for graphs
@@ -714,10 +729,11 @@ def main_loop():
         # update PD values for next loop
         #lastError = error
         #lastTime = time.time()
-        print("Starting waitkey", flush = True)
+        #print("Starting waitkey", flush = True)
         cv2.waitKey(10)
-        print("Exiting waitkey", flush = True)
+        #print("Exiting waitkey", flush = True)
         counter += 1
+
 
 
 def cleanup():
